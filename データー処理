@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+CSVファイルから参加者のスコア統計を算出するプログラム
+平均点、最高点、最低点を計算し、分かりやすく表示します。
+"""
+
+import csv
+import os
+import statistics
+from typing import List, Dict, Tuple
+
+
+class ScoreAnalyzer:
+    """スコア分析クラス"""
+    
+    def __init__(self, csv_file_path: str):
+        """
+        初期化
+        
+        Args:
+            csv_file_path (str): CSVファイルのパス
+        """
+        self.csv_file_path = csv_file_path
+        self.participants_data = {}
+        
+    def load_csv_data(self) -> bool:
+        """
+        CSVファイルからデータを読み込む
+        
+        Returns:
+            bool: 読み込み成功の場合True、失敗の場合False
+        """
+        try:
+            if not os.path.exists(self.csv_file_path):
+                print(f"エラー: ファイル '{self.csv_file_path}' が見つかりません。")
+                return False
+                
+            with open(self.csv_file_path, 'r', encoding='utf-8') as file:
+                csv_reader = csv.DictReader(file)
+                
+                for row in csv_reader:
+                    participant_name = row['参加者名']
+                    scores = []
+                    
+                    # スコア列を抽出（参加者名以外の列）
+                    for key, value in row.items():
+                        if key != '参加者名':
+                            try:
+                                score = float(value)
+                                scores.append(score)
+                            except ValueError:
+                                print(f"警告: {participant_name}の{key}の値 '{value}' は数値ではありません。")
+                                
+                    if scores:
+                        self.participants_data[participant_name] = scores
+                        
+            print(f"✓ {len(self.participants_data)}名の参加者データを読み込みました。")
+            return True
+            
+        except Exception as e:
+            print(f"エラー: CSVファイルの読み込み中にエラーが発生しました: {e}")
+            return False
+    
+    def calculate_statistics(self) -> Dict[str, Dict[str, float]]:
+        """
+        各参加者の統計を計算する
+        
+        Returns:
+            Dict[str, Dict[str, float]]: 参加者名をキーとした統計データ
+        """
+        statistics_data = {}
+        
+        for participant, scores in self.participants_data.items():
+            if scores:
+                stats = {
+                    '平均点': round(statistics.mean(scores), 2),
+                    '最高点': max(scores),
+                    '最低点': min(scores),
+                    'スコア数': len(scores),
+                    '全スコア': scores
+                }
+                statistics_data[participant] = stats
+                
+        return statistics_data
+    
+    def display_results(self, statistics_data: Dict[str, Dict[str, float]]) -> None:
+        """
+        結果を分かりやすく表示する
+        
+        Args:
+            statistics_data (Dict[str, Dict[str, float]]): 統計データ
+        """
+        print("\n" + "="*80)
+        print("📊 参加者スコア統計レポート")
+        print("="*80)
+        
+        # 全体統計
+        all_scores = []
+        for stats in statistics_data.values():
+            all_scores.extend(stats['全スコア'])
+            
+        if all_scores:
+            print(f"\n📈 全体統計:")
+            print(f"   参加者数: {len(statistics_data)}名")
+            print(f"   総スコア数: {len(all_scores)}点")
+            print(f"   全体平均: {round(statistics.mean(all_scores), 2)}点")
+            print(f"   全体最高点: {max(all_scores)}点")
+            print(f"   全体最低点: {min(all_scores)}点")
+        
+        print("\n" + "-"*80)
+        print("👥 個人別統計:")
+        print("-"*80)
+        
+        # 個人別統計を平均点順でソート
+        sorted_participants = sorted(
+            statistics_data.items(), 
+            key=lambda x: x[1]['平均点'], 
+            reverse=True
+        )
+        
+        for rank, (participant, stats) in enumerate(sorted_participants, 1):
+            print(f"\n🏆 第{rank}位: {participant}")
+            print(f"   �� 平均点: {stats['平均点']}点")
+            print(f"   �� 最高点: {stats['最高点']}点")
+            print(f"   �� 最低点: {stats['最低点']}点")
+            print(f"   �� スコア数: {stats['スコア数']}回")
+            print(f"   📋 全スコア: {', '.join(map(str, stats['全スコア']))}")
+            
+            # 平均点による評価
+            avg_score = stats['平均点']
+            if avg_score >= 90:
+                evaluation = "🌟 優秀"
+            elif avg_score >= 80:
+                evaluation = "👍 良好"
+            elif avg_score >= 70:
+                evaluation = "📈 普通"
+            else:
+                evaluation = "📚 要努力"
+            print(f"   💭 評価: {evaluation}")
+        
+        print("\n" + "="*80)
+        print("📋 詳細データ表:")
+        print("="*80)
+        
+        # 表形式での表示
+        print(f"{'参加者名':<12} {'平均点':<8} {'最高点':<8} {'最低点':<8} {'スコア数':<8} {'評価':<8}")
+        print("-" * 60)
+        
+        for participant, stats in sorted_participants:
+            avg_score = stats['平均点']
+            if avg_score >= 90:
+                evaluation = "優秀"
+            elif avg_score >= 80:
+                evaluation = "良好"
+            elif avg_score >= 70:
+                evaluation = "普通"
+            else:
+                evaluation = "要努力"
+                
+            print(f"{participant:<12} {stats['平均点']:<8} {stats['最高点']:<8} {stats['最低点']:<8} {stats['スコア数']:<8} {evaluation:<8}")
+
+
+def main():
+    """メイン関数"""
+    print("🎯 スコア分析プログラム")
+    print("="*50)
+    
+    # CSVファイルのパスを指定
+    csv_file = "sample_scores.csv"  # 実際のファイル名に変更してください
+    
+    # ファイルが存在しない場合の案内
+    if not os.path.exists(csv_file):
+        print(f"⚠️  ファイル '{csv_file}' が見つかりません。")
+        print("以下のいずれかの方法でCSVファイルを準備してください：")
+        print("1. 実際のCSVファイルをダウンロードして、このプログラムと同じフォルダに配置")
+        print("2. プログラム内の 'csv_file' 変数を実際のファイル名に変更")
+        print("3. サンプルファイル 'sample_scores.csv' を使用してテスト")
+        return
+    
+    # スコア分析器を作成
+    analyzer = ScoreAnalyzer(csv_file)
+    
+    # データを読み込み
+    if not analyzer.load_csv_data():
+        return
+    
+    # 統計を計算
+    print("\n📊 統計を計算中...")
+    statistics_data = analyzer.calculate_statistics()
+    
+    if not statistics_data:
+        print("エラー: 有効なデータが見つかりませんでした。")
+        return
+    
+    # 結果を表示
+    analyzer.display_results(statistics_data)
+    
+    print(f"\n✅ 分析完了！{len(statistics_data)}名の参加者データを処理しました。")
+
+
+if __name__ == "__main__":
+    main()
+    
